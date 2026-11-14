@@ -15,6 +15,17 @@ header{background:var(--navy);color:white;padding:14px 20px;display:flex;justify
 <header><div><h1>🚘 Fleet Field Management System</h1><small>Journey, mileage & fuel accountability</small></div><div class="statusline" id="sessionInfo">Not connected</div></header>
 <div id="loginView" class="login">
 <h2>Sign in</h2><p class="muted small">Use the account created for you by the fleet administrator.</p>
+<div id="recoveryPanel" class="hidden">
+  <div class="field">
+    <label>New password</label>
+    <input id="newPassword" type="password" autocomplete="new-password">
+  </div>
+  <div class="field">
+    <label>Confirm new password</label>
+    <input id="confirmPassword" type="password" autocomplete="new-password">
+  </div>
+  <button id="updatePasswordBtn" style="width:100%">Set new password</button>
+</div>
 <div class="field"><label>Email</label><input id="email" type="email" autocomplete="username" required></div>
 <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" required></div>
 <button id="loginBtn" style="width:100%">Sign in</button>
@@ -58,7 +69,14 @@ $('closeModal').onclick=closeModal;
 function table(headers,rows){return rows.length?`<table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="muted" style="padding:20px;text-align:center">No records found.</div>'}
 function opt(items,placeholder,label){return `<option value="">${placeholder}</option>`+items.map(x=>`<option value="${esc(x.id)}">${esc(label(x))}</option>`).join('')}
 function localDateTime(){let d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
-async function connect(){if(!window.supabase){toast('Supabase library did not load. Check internet and reload.');return}let url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();if(!url||!key){$('configStatus').textContent='Enter the project URL and publishable/anon key.';return}cfg={url,key};localStorage.setItem(configKey,JSON.stringify(cfg));state.sb=window.supabase.createClient(url,key);$('configStatus').textContent='Connecting…';let {data,error}=await state.sb.auth.getSession();if(error){$('configStatus').textContent=error.message;toast(error.message);return}$('configStatus').textContent='Connection initialized. Sign in with your account.';if(data.session)await loadSession(data.session.user);else{$('loginView').classList.remove('hidden');$('appView').classList.add('hidden');$('sessionInfo').textContent='Connected · signed out'}}
+async function connect(){if(!window.supabase){toast('Supabase library did not load. Check internet and reload.');return}let url=$('projectUrl').value.trim(),key=$('anonKey').value.trim();if(!url||!key){$('configStatus').textContent='Enter the project URL and publishable/anon key.';return}cfg={url,key};localStorage.setItem(configKey,JSON.stringify(cfg));state.sb=window.supabase.createClient(url,state.sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    $('recoveryPanel').classList.remove('hidden');
+    $('loginView').classList.remove('hidden');
+    $('appView').classList.add('hidden');
+    toast('Enter and confirm your new password.');
+  }
+});   $('configStatus').textContent='Connecting…';let {data,error}=await state.sb.auth.getSession();if(error){$('configStatus').textContent=error.message;toast(error.message);return}$('configStatus').textContent='Connection initialized. Sign in with your account.';if(data.session)await loadSession(data.session.user);else{$('loginView').classList.remove('hidden');$('appView').classList.add('hidden');$('sessionInfo').textContent='Connected · signed out'}}
 async function loadSession(user){state.user=user;let {data:prof,error}=await state.sb.from('profiles').select('id,full_name,role').eq('id',user.id).maybeSingle();if(error)throw error;if(!prof)throw new Error('Your account has no profile row. Ask the administrator to add your profile.');state.profile=prof;state.role=String(prof.role||'').toLowerCase();if(!['admin','driver'].includes(state.role))throw new Error('Your profile role must be admin or driver.');$('loginView').classList.add('hidden');$('appView').classList.remove('hidden');document.querySelectorAll('.adminOnly').forEach(x=>x.classList.toggle('hidden',state.role!=='admin'));$('sessionInfo').textContent=`${prof.full_name||user.email} · ${state.role}`;$('roleTag').textContent=state.role==='admin'?'Administrator':'Driver';$('newJourney').classList.toggle('hidden',state.role!=='driver');await refresh()}
 async function refresh(){try{let [v,d,p,j,f,a]=await Promise.all([
 state.sb.from('vehicles').select('*').order('registration_number'),
@@ -112,7 +130,21 @@ function openAssignment(){showModal('Assign vehicle',`<form id="assignForm"><div
 function exportCSV(){let rows=[['Start','Vehicle','Driver','Origin','Destination','Start KM','End KM','Distance KM','Status'],...state.journeys.map(x=>[x.start_time,vehicleName(x.vehicle_id),driverName(x.driver_id),x.origin,x.destination,x.start_odometer,x.end_odometer,x.distance_km,x.status])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ffms-journey-report.csv';a.click();URL.revokeObjectURL(a.href)}
 document.querySelectorAll('.nav button[data-page]').forEach(b=>b.onclick=()=>{document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));$('page-'+b.dataset.page).classList.remove('hidden');document.querySelectorAll('.nav button').forEach(n=>n.classList.toggle('active',n===b))});
 $('connectBtn').onclick=()=>{$('projectUrl').value=$('loginProjectUrl').value;$('anonKey').value=$('loginAnonKey').value;connect()};
-$('loginBtn').onclick=async()=>{if(!state.sb){toast('Connect to Supabase first.');return}try{let {data,error}=await state.sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error)throw error;await loadSession(data.user)}catch(e){toast(e.message)}};
+$('loginBtn').onclick=async()=>{if(!state.sb){toast('Connect to Supabase first.');return}try{let {data,error}=await state.sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error)throw error;await loadSession(data.user)}catch(e){toast(e.$('updatePasswordBtn').onclick=async()=>{
+  const p=$('newPassword').value;
+  const c=$('confirmPassword').value;
+  if(p.length<8){toast('Password must be at least 8 characters.');return}
+  if(p!==c){toast('Passwords do not match.');return}
+  try{
+    const {error}=await state.sb.auth.updateUser({password:p});
+    if(error)throw error;
+    toast('Password updated. Please sign in.');
+    $('recoveryPanel').classList.add('hidden');
+    $('newPassword').value='';
+    $('confirmPassword').value='';
+    await state.sb.auth.signOut();
+  }catch(e){toast(e.message)}
+};
 $('logoutBtn').onclick=async()=>{await state.sb.auth.signOut();state.user=null;$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');$('sessionInfo').textContent='Signed out'};
 $('saveConfig').onclick=()=>{connect()};$('newJourney').onclick=openJourney;$('newFuel').onclick=openFuel;$('newVehicle').onclick=openVehicle;$('newAssignment').onclick=openAssignment;$('exportBtn').onclick=exportCSV;
 if(cfg.url&&cfg.key)connect().catch(e=>toast(e.message));
