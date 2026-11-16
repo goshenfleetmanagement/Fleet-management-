@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const driverRow: Record<string, unknown> = {
-      user_id: newUserId, phone_number: phone, status: "pending",
+      user_id: newUserId, phone_number: phone, status: "active",
     };
     if (licenceNumber) driverRow.licence_number = licenceNumber;
     if (licenceExpiry) driverRow.licence_expiry = licenceExpiry;
