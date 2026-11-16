@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
 
     return json({
       success: true,
-      message: "Registration received. Check your email to confirm your account, then sign in. Your fleet administrator will approve your driver profile.",
+      message: "Registration successful. Check your email to confirm your account, then sign in. Your fleet administrator controls vehicle assignments.",
       requiresEmailConfirmation: !signup.session,
     }, 201);
   } catch (error) {
