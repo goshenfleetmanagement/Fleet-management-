@@ -86,3 +86,5 @@ Deno.serve(async (req: Request) => {
     return json({ error: error instanceof Error ? error.message : "Unexpected server error." }, 500);
   }
 });
+
+// Deployment trigger: verify the configured Supabase access token.
