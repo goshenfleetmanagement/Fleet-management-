@@ -37,25 +37,21 @@ Deno.serve(async (req: Request) => {
     if (!phone || phone.length > 30) return json({ error: "Enter your phone number." }, 400);
     if (password.length < 8) return json({ error: "Your password must be at least 8 characters." }, 400);
 
-    // Public registration can only create driver accounts.
-    const signupClient = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: signup, error: signupError } = await signupClient.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, role: "driver", phone_number: phone },
-        emailRedirectTo: "https://izaqueseb-bot.github.io/Fleet-management-/",
-      },
-    });
-    if (signupError) return json({ error: signupError.message }, 400);
-    const newUserId = signup.user?.id;
-    if (!newUserId) return json({ error: "Supabase did not create the account. Please try again." }, 500);
-
+    // Create the Auth user with the service-role client so the profile foreign key
+    // always references a user created in this same Supabase project.
     const adminClient = createClient(url, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    const { data: created, error: createError } = await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName, role: "driver", phone_number: phone },
+    });
+    if (createError) return json({ error: createError.message }, 400);
+    const newUserId = created.user?.id;
+    if (!newUserId) return json({ error: "Supabase did not create the account. Please try again." }, 500);
+
     const { error: profileError } = await adminClient.from("profiles").upsert({
       id: newUserId, full_name: fullName, role: "driver",
     }, { onConflict: "id" });
