@@ -75,8 +75,8 @@ Deno.serve(async (req: Request) => {
 
     return json({
       success: true,
-      message: "Registration successful. Check your email to confirm your account, then sign in. Your fleet administrator controls vehicle assignments.",
-      requiresEmailConfirmation: !signup.session,
+      message: "Registration successful. You can now sign in. Your fleet administrator controls vehicle assignments.",
+      requiresEmailConfirmation: false,
     }, 201);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Unexpected server error." }, 500);
