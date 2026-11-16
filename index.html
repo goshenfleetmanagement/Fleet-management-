@@ -62,6 +62,9 @@ const $=id=>document.getElementById(id), today=()=>new Date().toISOString().slic
 const state={sb:null,user:null,profile:null,role:'',vehicles:[],drivers:[],profiles:[],journeys:[],fuel:[],assignments:[]};
 const configKey='ffms_supabase_config_v1';
 let cfg=JSON.parse(localStorage.getItem(configKey)||'{}');
+// Public browser configuration: Supabase publishable keys are designed to be exposed in client apps.
+cfg={url:cfg.url||'https://cpfippqprzmjdqzwnwyg.supabase.co',key:cfg.key||'sb_publishable_X-VsmGfhc7NHHHSFS1ZtSA_H68UqhuC'};
+localStorage.setItem(configKey,JSON.stringify(cfg));
 $('projectUrl').value=cfg.url||'https://cpfippqprzmjdqzwnwyg.supabase.co';$('anonKey').value=cfg.key||'';$('loginProjectUrl').value=cfg.url||'https://cpfippqprzmjdqzwnwyg.supabase.co';$('loginAnonKey').value=cfg.key||'';
 function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',3500)}
 function showModal(t,h){$('modalTitle').textContent=t;$('modalBody').innerHTML=h;$('modal').classList.add('show')}
