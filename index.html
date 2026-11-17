@@ -131,18 +131,23 @@ renderEvidenceGallery();
 
 function renderDriverLocations(){
   const el=$('driverLocations');if(!el||state.role!=='admin')return;
-  const journeys=state.journeys.filter(j=>j.start_latitude!=null||j.end_latitude!=null);
+  const journeys=state.journeys||[];
+  if(!journeys.length){el.innerHTML='<div class="panel muted">No journeys have been recorded yet. Once a driver starts a journey, it will appear here.</div>';return}
   const rows=journeys.map(j=>{
-    const start=j.start_latitude!=null&&j.start_longitude!=null?'<a href="https://www.google.com/maps?q='+encodeURIComponent(j.start_latitude+','+j.start_longitude)+'" target="_blank" rel="noopener">Start pin</a>':'—';
-    const finish=j.end_latitude!=null&&j.end_longitude!=null?'<a href="https://www.google.com/maps?q='+encodeURIComponent(j.end_latitude+','+j.end_longitude)+'" target="_blank" rel="noopener">End pin</a>':'Not captured';
-    const both=j.start_latitude!=null&&j.start_longitude!=null&&j.end_latitude!=null&&j.end_longitude!=null;
-    const routeMap=both?'<a href="https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(j.start_latitude+','+j.start_longitude)+'&destination='+encodeURIComponent(j.end_latitude+','+j.end_longitude)+'" target="_blank" rel="noopener">View both pins</a>':'—';
-    return '<tr><td>'+esc((j.start_time||'').replace('T',' ').slice(0,16))+'</td><td>'+esc(driverName(j.driver_id))+'</td><td>'+esc(vehicleName(j.vehicle_id))+'</td><td>'+esc(j.origin||'')+' → '+esc(j.destination||'')+'</td><td>'+start+'</td><td>'+finish+'</td><td>'+routeMap+'</td></tr>';
+    const hasStart=j.start_latitude!=null&&j.start_longitude!=null;
+    const hasEnd=j.end_latitude!=null&&j.end_longitude!=null;
+    const start=hasStart?'<a href="https://www.google.com/maps?q='+encodeURIComponent(j.start_latitude+','+j.start_longitude)+'" target="_blank" rel="noopener">Start pin</a>':'Not captured';
+    const finish=hasEnd?'<a href="https://www.google.com/maps?q='+encodeURIComponent(j.end_latitude+','+j.end_longitude)+'" target="_blank" rel="noopener">End pin</a>':'Not captured';
+    const routeMap=hasStart&&hasEnd?'<a href="https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(j.start_latitude+','+j.start_longitude)+'&destination='+encodeURIComponent(j.end_latitude+','+j.end_longitude)+'" target="_blank" rel="noopener">View both pins</a>':'—';
+    return '<tr><td>'+esc((j.start_time||'').replace('T',' ').slice(0,16))+'</td><td>'+esc(driverName(j.driver_id))+'</td><td>'+esc(vehicleName(j.vehicle_id))+'</td><td>'+esc(j.origin||'')+' → '+esc(j.destination||'')+'</td><td>'+start+'</td><td>'+finish+'</td><td>'+routeMap+'</td><td>'+esc(j.status||'—')+'</td></tr>';
   });
-  el.innerHTML=table(['Journey date','Driver','Vehicle','Route','Start location','End location','Map'],rows);
+  el.innerHTML=table(['Journey date','Driver','Vehicle','Route','Start location','End location','Map','Status'],rows);
 }
-async function refreshDriverLocations(){if(state.role==='admin')renderDriverLocations()}
-
+async function refreshDriverLocations(){
+  if(state.role!=='admin')return;
+  const el=$('driverLocations');if(el)el.innerHTML='<div class="panel muted">Refreshing journey locations…</div>';
+  await refresh();
+}
 function evidenceButton(path,label,meta){
 if(!path)return '';
 const p=encodeURIComponent(path),l=encodeURIComponent(label),m=encodeURIComponent(meta);
@@ -201,6 +206,7 @@ function openVehicle(){showModal('Add vehicle',`<form id="vehicleForm"><div clas
 function openAssignment(){showModal('Assign vehicle',`<form id="assignForm"><div class="formgrid"><div class="field"><label>Driver account *</label><select name="driver" required>${opt(state.drivers,'Select driver',x=>driverName(x.user_id),'user_id')}</select></div><div class="field"><label>Vehicle *</label><select name="vehicle" required>${opt(state.vehicles,'Select vehicle',x=>vehicleName(x.id),'id')}</select></div></div><div class="actions"><button type="submit">Assign vehicle</button></div></form>`);$('assignForm').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target),driver=String(f.get('driver')||'').trim(),vehicle=String(f.get('vehicle')||'').trim();if(!driver||!vehicle){toast('Please select both a driver account and a vehicle.');return}try{let {error}=await state.sb.from('driver_vehicle_assignments').insert({driver_id:driver,vehicle_id:vehicle,active:true});if(error)throw error;closeModal();toast('Vehicle assigned.');await refresh()}catch(x){toast(x.message)}}}
 function exportCSV(){let rows=[['Start','Vehicle','Driver','Origin','Destination','Start KM','End KM','Distance KM','Status'],...filteredJourneys().map(x=>[x.start_time,vehicleName(x.vehicle_id),driverName(x.driver_id),x.origin,x.destination,x.start_odometer,x.end_odometer,journeyKm(x),x.status])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ffms-journey-report.csv';a.click();URL.revokeObjectURL(a.href)}
 document.querySelectorAll('.nav button[data-page]').forEach(b=>b.onclick=()=>{document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));$('page-'+b.dataset.page).classList.remove('hidden');document.querySelectorAll('.nav button').forEach(n=>n.classList.toggle('active',n===b));if(b.dataset.page==='locations')refreshDriverLocations()});
+$('refreshLocations').onclick=()=>refreshDriverLocations();
 $('connectBtn').onclick=()=>{$('projectUrl').value=$('loginProjectUrl').value;$('anonKey').value=$('loginAnonKey').value;connect()};
 $('showSignupBtn').onclick=()=>{$('signupPanel').classList.toggle('hidden');$('signupPanel').scrollIntoView({behavior:'smooth',block:'nearest'});};
 $('signupBtn').onclick=async()=>{if(!state.sb){toast('Connect to Supabase first.');return}const b=$('signupBtn');b.disabled=true;try{const payload={full_name:$('signupName').value.trim(),email:$('signupEmail').value.trim(),phone_number:$('signupPhone').value.trim(),licence_number:$('signupLicence').value.trim(),licence_expiry:$('signupExpiry').value,password:$('signupPassword').value};const {data,error}=await state.sb.functions.invoke('smooth-action',{body:payload});if(error){let detail=error.message||'Request failed';try{const response=error.context;if(response){const raw=await response.clone().text();if(raw){try{const parsed=JSON.parse(raw);detail=parsed.error||parsed.message||raw}catch(_){detail=raw}}detail='HTTP '+response.status+': '+detail}}catch(_){}throw new Error(detail)}if(data?.error)throw new Error(data.error);toast(data?.message||'Registration submitted. Check your email.');$('email').value=payload.email;$('password').value='';$('signupPassword').value='';$('signupPanel').classList.add('hidden');}catch(e){let detail=e.message||'Unknown error';try{if(e.context){const response=e.context.clone?e.context.clone():e.context;const body=await response.json();detail=body.error||body.message||detail}}catch(_){try{if(e.context){const response=e.context.clone?e.context.clone():e.context;const body=await response.text();if(body)detail=body}}catch(__){}}toast('Registration failed: '+detail)}finally{b.disabled=false}};
