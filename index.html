@@ -147,6 +147,7 @@ async function refreshDriverLocations(){
   if(state.role!=='admin')return;
   const el=$('driverLocations');if(el)el.innerHTML='<div class="panel muted">Refreshing journey locations…</div>';
   await refresh();
+  renderDriverLocations();
 }
 function evidenceButton(path,label,meta){
 if(!path)return '';
