@@ -1,0 +1,38 @@
+name: Repository backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly on Sunday at 03:00 UTC (06:00 Uganda time).
+    - cron: "0 3 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Git bundle
+        run: |
+          git bundle create goshen-fleet-management.bundle --all
+          git bundle verify goshen-fleet-management.bundle
+
+      - name: Create source archive
+        run: |
+          git archive --format=tar.gz --output=goshen-fleet-management-source.tar.gz HEAD
+
+      - name: Upload backup artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: goshen-fleet-management-backup-${{ github.run_id }}
+          path: |
+            goshen-fleet-management.bundle
+            goshen-fleet-management-source.tar.gz
+          if-no-files-found: error
+          retention-days: 90
